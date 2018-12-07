@@ -6,19 +6,23 @@ class Player
     @y = options[:y] || 0
   end
   
-  def right
+  def right(map_coordinates)
+    return if self.x + 1 > map_coordinates[:x1]
     self.x += 1
   end
 
-  def left
+  def left(map_coordinates)
+    return if self.x - 1 < map_coordinates[:x0]
     self.x -= 1
   end
   
-  def up
+  def up(map_coordinates)
+    return if self.y + 1 > map_coordinates[:y1]
     self.y += 1
   end
 
-  def down
+  def down(map_coordinates)
+    return if self.y - 1 < map_coordinates[:y0]
     self.y -= 1
   end
 
@@ -28,38 +32,43 @@ end
 
 class Robot < Player
   def label
-    '🤖'
+    '🤖 '
   end 
 end
 
 class Sheep < Player
   def label
-    '🐑'
+    '🐑 '
   end
 
-  def up
+  def up(map_coordinates)
   end
 
-  def left 
+  def left(map_coordinates)
   end
 end
 
 
 class Game
-  attr_accessor :enemies, :player, :game_objects
+  attr_accessor :enemies, :player, :game_objects, :map_size
 
   ENEMY_COUNT = 5.freeze
+  MAP_COORDINATES = {
+    big: { x0: -24, x1: 24, y0: -12, y1: 12 }
+  }.freeze
 
-  def initialize(player)
-    @enemies = Array.new(ENEMY_COUNT) { Robot.new }
-    @player = player
+  def initialize(options={})
+    @map_size     = options[:map_size] || :big
+    @player       = options[:player]
+
+    @enemies      = Array.new(ENEMY_COUNT) { Robot.new }
     @game_objects = @enemies << @player
   end
 
 
   def print_map
-    (12).downto(-12) do |y|
-      (-24).upto(24) do |x|
+    (ymax).downto(ymin) do |y|
+      (xmin).upto(xmax) do |x|
         # Проверяем, есть ли у нас в массиве робот с координатами x и y
         found = self.game_objects.find { |obj| obj.x == x && obj.y == y }
         
@@ -67,7 +76,7 @@ class Game
         if found
           print found.label
         else
-          print '.' 
+          print '🌲 ' 
         end
       end 
       # Просто переводим строку:
@@ -78,7 +87,7 @@ class Game
   def next_move
     self.game_objects.each do |who|
       m = [:right, :left, :up, :down].sample
-      who.send(m)
+      who.send(m, map_coordinates)
     end
   end
 
@@ -89,10 +98,36 @@ class Game
       a.label != b.label
     end  
   end
+
+  def is_player_win?
+    self.player.x == xmax && self.player.y == ymin
+  end
+
+  private 
+
+  def map_coordinates
+    @map_coordinates ||= MAP_COORDINATES[self.map_size]
+  end
+
+  def xmin
+    @xmin ||= map_coordinates[:x0]
+  end
+
+  def xmax
+    @xmax ||= map_coordinates[:x1]
+  end
+
+  def ymin
+    @ymin ||= map_coordinates[:y0]
+  end
+
+  def ymax
+    @ymax ||= map_coordinates[:y1]
+  end
 end
 
 sheep = Sheep.new({x: -12, y: 12})
-game = Game.new(sheep)
+game = Game.new({player: sheep, map_size: :big})
 
 loop do
   # Хитрый способ очистить экран
@@ -103,6 +138,11 @@ loop do
 
   if game.is_game_over?
     puts 'Game over'
+    exit
+  end
+
+  if game.is_player_win?
+    puts 'Player WIN'
     exit
   end
 
